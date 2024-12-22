@@ -1,0 +1,11 @@
+set(SUB_PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
+set(SUB_PROTO_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
+include_directories(${TRAFT_SRC_INCLUDE_DIR} ${SUB_PROTO_INCLUDE_DIR})
+
+add_subdirectory(proto)
+
+file(GLOB SOURCES "*.cc")
+file(GLOB PROTO_SOURCES "${SUB_PROTO_OUTPUT_DIR}/*.cc")
+
+add_library(raft STATIC ${SOURCES})

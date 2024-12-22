@@ -1,8 +1,15 @@
-include_directories(${TRAFT_SRC_INCLUDE_DIR})
+find_package(Protobuf REQUIRED)
+if (NOT Protobuf_FOUND)
+    message(FATAL_ERROR "Protobuf not found")
+endif()
 
 add_subdirectory(storage)
+add_subdirectory(raft)
 
-set(SUB_LIBS ${SUB_LIBS} traft-storage)
+set(SUB_LIBS ${SUB_LIBS} 
+  storage 
+  raft
+)
 
 add_library(OBJ_LIB OBJECT "raft.cc")
 
@@ -12,7 +19,6 @@ add_library(traft-static STATIC $<TARGET_OBJECTS:OBJ_LIB>)
 
 target_link_libraries(traft-shared ${SUB_LIBS})
 target_link_libraries(traft-static ${SUB_LIBS})
-
 
 install(TARGETS traft-shared
         RUNTIME DESTINATION bin

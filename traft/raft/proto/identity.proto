@@ -1,0 +1,9 @@
+syntax = "proto3";
+package traft.raft;
+
+message PBPeerId {
+  uint32 ip = 1;
+  int32 port = 2;
+  int32 index = 3;
+  int32 type = 4;
+}
