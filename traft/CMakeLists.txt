@@ -3,12 +3,14 @@ if (NOT Protobuf_FOUND)
     message(FATAL_ERROR "Protobuf not found")
 endif()
 
-add_subdirectory(storage)
-add_subdirectory(raft)
+# add_subdirectory(storage)
+# add_subdirectory(raft)
+add_subdirectory(utils)
+add_subdirectory(testing)
 
 set(SUB_LIBS ${SUB_LIBS} 
-  storage 
-  raft
+  # storage 
+  # raft
 )
 
 add_library(OBJ_LIB OBJECT "raft.cc")

@@ -1,4 +1,5 @@
 bld/*
 cmake-third-party/*
 
-traft/runtime/*
+.cache/*
+build/*

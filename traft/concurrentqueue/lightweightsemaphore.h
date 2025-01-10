@@ -11,33 +11,6 @@
 #include <type_traits> // For std::make_signed<T>
 #include "trpc/coroutine/fiber_semaphore.h"
 
-#if defined(_WIN32)
-// Avoid including windows.h in a header; we only need a handful of
-// items, so we'll redeclare them here (this is relatively safe since
-// the API generally has to remain stable between Windows versions).
-// I know this is an ugly hack but it still beats polluting the global
-// namespace with thousands of generic names or adding a .cpp for nothing.
-extern "C" {
-	struct _SECURITY_ATTRIBUTES;
-	__declspec(dllimport) void* __stdcall CreateSemaphoreW(_SECURITY_ATTRIBUTES* lpSemaphoreAttributes, long lInitialCount, long lMaximumCount, const wchar_t* lpName);
-	__declspec(dllimport) int __stdcall CloseHandle(void* hObject);
-	__declspec(dllimport) unsigned long __stdcall WaitForSingleObject(void* hHandle, unsigned long dwMilliseconds);
-	__declspec(dllimport) int __stdcall ReleaseSemaphore(void* hSemaphore, long lReleaseCount, long* lpPreviousCount);
-}
-#elif defined(__MACH__)
-#include <mach/mach.h>
-#elif defined(__MVS__)
-#include <zos-semaphore.h>
-#elif defined(__unix__)
-#include <semaphore.h>
-
-#if defined(__GLIBC_PREREQ) && defined(_GNU_SOURCE)
-#if __GLIBC_PREREQ(2,30)
-#define MOODYCAMEL_LIGHTWEIGHTSEMAPHORE_MONOTONIC
-#endif
-#endif
-#endif
-
 namespace moodycamel
 {
 namespace details
@@ -97,7 +70,9 @@ public:
 	}
 
 	void signal(int count) {
-		m_sema.Post(count);
+		while (--count >= 0) {
+			m_sema.Post();
+		}
 	}
 };
 }	// end namespace details

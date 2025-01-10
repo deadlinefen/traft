@@ -11,17 +11,37 @@ set(TRAFT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 set(TRAFT_SRC_PATH "${TRAFT_ROOT_PATH}/src")
 set(CMAKE_MODULE_PATH "${TRAFT_ROOT_PATH}/cmake;${CMAKE_MODULE_PATH}")
 
-include(fmt)
-include(spdlog)
-include(concurrentqueue)
+
+include(FetchContent)
+FetchContent_Declare(
+    trpc-cpp
+    GIT_REPOSITORY    git@git.woa.com:rayfordwu/trpc-cpp.git
+    GIT_TAG           traft-v0.19.8
+    SOURCE_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/cmake-third-party/trpc-cpp
+)
+FetchContent_MakeAvailable(trpc-cpp)
+
 include(xxhash)
 
+set(PB_PROTOC ${PROTOBUF_PROTOC_EXECUTABLE})
+set(TRPC_CPP_PLUGIN ${TRPC_TO_CPP_PLUGIN})
+
 set(TRAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR} 
-                      ${TARGET_INCLUDE_PATHS})
+                      ${TARGET_INCLUDE_PATHS}
+                      ${CMAKE_CURRENT_SOURCE_DIR}/cmake-third-party/trpc-cpp)
 include_directories(${TRAFT_INCLUDE_DIR})
 
-find_package(trpc REQUIRED)
+find_program(LLD_EXECUTABLE lld)
+if (LLD_EXECUTABLE)
+    message(STATUS "LLD found: ${LLD_EXECUTABLE}")
 
-# add_subdirectory(traft)
-add_subdirectory(testing)
-add_subdirectory(trpc)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=lld")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=lld")
+endif()
+
+find_library(TCMALLOC_LIB tcmalloc)
+if(TCMALLOC_LIB)
+    message(STATUS "tcmalloc library found: ${TCMALLOC_LIB}")
+endif()
+
+add_subdirectory(traft)

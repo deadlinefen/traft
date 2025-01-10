@@ -2,7 +2,6 @@
 
 #include <concepts>
 #include <cstddef>
-#include <cstdint>
 #include <iterator>
 #include <type_traits>
 #include <utility>
@@ -23,10 +22,10 @@ class ConcurrentQueueInterface {
 
   bool Enqueue(Elem &&e) { return queue_.Enqueue(std::forward<Elem>(e)); }
 
-  template <typename It>
+  template <typename It, typename Rep, typename Period>
     requires std::same_as<Elem, typename std::iterator_traits<It>::value_type>
   std::size_t WaitDequeueBulkTimed(It it, std::size_t max_size,
-                                   std::int64_t timeout) {
+                                   std::chrono::duration<Rep, Period> const &timeout) {
     return queue_.WaitDequeueBulkTimed(it, max_size, timeout);
   }
 
@@ -52,9 +51,9 @@ class ConcurrentQueueV1 {
 
   bool Enqueue(Elem &&e) { return queue_.enqueue(std::forward<Elem>(e)); }
 
-  template <typename It>
+  template <typename It, typename Rep, typename Period>
   std::size_t WaitDequeueBulkTimed(It it, std::size_t max_size,
-                                   std::int64_t timeout_ms) {
+                                   std::chrono::duration<Rep, Period> const &timeout) {
     // step 1: try to dequeue from the queue without block
     std::size_t size = queue_.try_dequeue_bulk(it, max_size);
     if (size != 0) {
@@ -62,7 +61,7 @@ class ConcurrentQueueV1 {
     }
 
     // step 2: block and wait for the queue to be non-empty
-    if (queue_.wait_dequeue_timed(*it, timeout_ms * 1000)) {
+    if (queue_.wait_dequeue_timed(*it, timeout)) {
       return queue_.try_dequeue_bulk(++it, max_size - 1) + 1;
     }
 

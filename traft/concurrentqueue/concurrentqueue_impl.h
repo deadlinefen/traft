@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "trpc/runtime/threadmodel/fiber/detail/fiber_entity.h"
 #if defined(__GNUC__) && !defined(__INTEL_COMPILER)
 // Disable -Wconversion warnings (spuriously triggered when Traits::size_t and
 // Traits::index_t are set to < 32 bits, causing integer promotion, causing warnings
@@ -79,18 +80,18 @@
 
 // Platform-specific definitions of a numeric thread ID type and an invalid value
 namespace moodycamel { namespace details {
-	template<typename thread_id_t> struct thread_id_converter {
-		typedef thread_id_t thread_id_numeric_size_t;
-		typedef thread_id_t thread_id_hash_t;
-		static thread_id_hash_t prehash(thread_id_t const& x) { return x; }
+	template<typename fiber_id_t> struct fiber_id_converter {
+		typedef fiber_id_t fiber_id_numeric_size_t;
+		typedef fiber_id_t fiber_id_hash_t;
+		static fiber_id_hash_t prehash(fiber_id_t const& x) { return x; }
 	};
 } }
 #if defined(MCDBGQ_USE_RELACY)
 namespace moodycamel { namespace details {
-	typedef std::uint32_t thread_id_t;
-	static const thread_id_t invalid_thread_id  = 0xFFFFFFFFU;
-	static const thread_id_t invalid_thread_id2 = 0xFFFFFFFEU;
-	static inline thread_id_t thread_id() { return rl::thread_index(); }
+	typedef std::uint32_t fiber_id_t;
+	static const fiber_id_t invalid_fiber_id  = 0xFFFFFFFFU;
+	static const fiber_id_t invalid_fiber_id2 = 0xFFFFFFFEU;
+	static inline fiber_id_t fiber_id() { return rl::thread_index(); }
 } }
 #elif defined(_WIN32) || defined(__WINDOWS__) || defined(__WIN32__)
 // No sense pulling in windows.h in a header, we'll manually declare the function
@@ -98,36 +99,36 @@ namespace moodycamel { namespace details {
 extern "C" __declspec(dllimport) unsigned long __stdcall GetCurrentThreadId(void);
 namespace moodycamel { namespace details {
 	static_assert(sizeof(unsigned long) == sizeof(std::uint32_t), "Expected size of unsigned long to be 32 bits on Windows");
-	typedef std::uint32_t thread_id_t;
-	static const thread_id_t invalid_thread_id  = 0;			// See http://blogs.msdn.com/b/oldnewthing/archive/2004/02/23/78395.aspx
-	static const thread_id_t invalid_thread_id2 = 0xFFFFFFFFU;	// Not technically guaranteed to be invalid, but is never used in practice. Note that all Win32 thread IDs are presently multiples of 4.
-	static inline thread_id_t thread_id() { return static_cast<thread_id_t>(::GetCurrentThreadId()); }
+	typedef std::uint32_t fiber_id_t;
+	static const fiber_id_t invalid_fiber_id  = 0;			// See http://blogs.msdn.com/b/oldnewthing/archive/2004/02/23/78395.aspx
+	static const fiber_id_t invalid_fiber_id2 = 0xFFFFFFFFU;	// Not technically guaranteed to be invalid, but is never used in practice. Note that all Win32 thread IDs are presently multiples of 4.
+	static inline fiber_id_t fiber_id() { return static_cast<fiber_id_t>(::GetCurrentThreadId()); }
 } }
 #elif defined(__arm__) || defined(_M_ARM) || defined(__aarch64__) || (defined(__APPLE__) && TARGET_OS_IPHONE) || defined(__MVS__) || defined(MOODYCAMEL_NO_THREAD_LOCAL)
 namespace moodycamel { namespace details {
 	static_assert(sizeof(std::thread::id) == 4 || sizeof(std::thread::id) == 8, "std::thread::id is expected to be either 4 or 8 bytes");
 	
-	typedef std::thread::id thread_id_t;
-	static const thread_id_t invalid_thread_id;         // Default ctor creates invalid ID
+	typedef std::thread::id fiber_id_t;
+	static const fiber_id_t invalid_fiber_id;         // Default ctor creates invalid ID
 
-	// Note we don't define a invalid_thread_id2 since std::thread::id doesn't have one; it's
+	// Note we don't define a invalid_fiber_id2 since std::thread::id doesn't have one; it's
 	// only used if MOODYCAMEL_CPP11_THREAD_LOCAL_SUPPORTED is defined anyway, which it won't
 	// be.
-	static inline thread_id_t thread_id() { return std::this_thread::get_id(); }
+	static inline fiber_id_t fiber_id() { return std::this_thread::get_id(); }
 
 	template<std::size_t> struct thread_id_size { };
 	template<> struct thread_id_size<4> { typedef std::uint32_t numeric_t; };
 	template<> struct thread_id_size<8> { typedef std::uint64_t numeric_t; };
 
-	template<> struct thread_id_converter<thread_id_t> {
-		typedef thread_id_size<sizeof(thread_id_t)>::numeric_t thread_id_numeric_size_t;
+	template<> struct thread_id_converter<fiber_id_t> {
+		typedef thread_id_size<sizeof(fiber_id_t)>::numeric_t thread_id_numeric_size_t;
 #ifndef __APPLE__
 		typedef std::size_t thread_id_hash_t;
 #else
 		typedef thread_id_numeric_size_t thread_id_hash_t;
 #endif
 
-		static thread_id_hash_t prehash(thread_id_t const& x)
+		static thread_id_hash_t prehash(fiber_id_t const& x)
 		{
 #ifndef __APPLE__
 			return std::hash<std::thread::id>()(x);
@@ -150,10 +151,10 @@ namespace moodycamel { namespace details {
 #define MOODYCAMEL_THREADLOCAL thread_local
 #endif
 namespace moodycamel { namespace details {
-	typedef std::uintptr_t thread_id_t;
-	static const thread_id_t invalid_thread_id  = 0;		// Address can't be nullptr
-	static const thread_id_t invalid_thread_id2 = 1;		// Member accesses off a null pointer are also generally invalid. Plus it's not aligned.
-	inline thread_id_t thread_id() { static MOODYCAMEL_THREADLOCAL int x; return reinterpret_cast<thread_id_t>(&x); }
+	typedef std::uintptr_t fiber_id_t;
+	static const fiber_id_t invalid_fiber_id  = 0;		// Address can't be nullptr
+	static const fiber_id_t invalid_fiber_id2 = 1;		// Member accesses off a null pointer are also generally invalid. Plus it's not aligned.
+	inline fiber_id_t fiber_id() { return trpc::fiber::detail::GetCurrentFiberEntity()->debugging_fiber_id; }
 } }
 #endif
 
@@ -464,11 +465,11 @@ namespace details
 	};
 	template<std::size_t size> struct hash_32_or_64 : public _hash_32_or_64<(size > 4)> {  };
 	
-	static inline size_t hash_thread_id(thread_id_t id)
+	static inline size_t hash_fiber_id(fiber_id_t id)
 	{
-		static_assert(sizeof(thread_id_t) <= 8, "Expected a platform where thread IDs are at most 64-bit values");
-		return static_cast<size_t>(hash_32_or_64<sizeof(thread_id_converter<thread_id_t>::thread_id_hash_t)>::hash(
-			thread_id_converter<thread_id_t>::prehash(id)));
+		static_assert(sizeof(fiber_id_t) <= 8, "Expected a platform where thread IDs are at most 64-bit values");
+		return static_cast<size_t>(hash_32_or_64<sizeof(fiber_id_converter<fiber_id_t>::fiber_id_hash_t)>::hash(
+			fiber_id_converter<fiber_id_t>::prehash(id)));
 	}
 	
 	template<typename T>
@@ -1341,7 +1342,7 @@ public:
 			details::static_is_lock_free<std::uint32_t>::value == 2 &&
 			details::static_is_lock_free<index_t>::value == 2 &&
 			details::static_is_lock_free<void*>::value == 2 &&
-			details::static_is_lock_free<typename details::thread_id_converter<details::thread_id_t>::thread_id_numeric_size_t>::value == 2;
+			details::static_is_lock_free<typename details::fiber_id_converter<details::fiber_id_t>::fiber_id_numeric_size_t>::value == 2;
 	}
 
 
@@ -3291,7 +3292,7 @@ private:
 	
 	struct ImplicitProducerKVP
 	{
-		std::atomic<details::thread_id_t> key;
+		std::atomic<details::fiber_id_t> key;
 		ImplicitProducer* value;		// No need for atomicity since it's only read by the thread that sets it in the first place
 		
 		ImplicitProducerKVP() : value(nullptr) { }
@@ -3338,7 +3339,7 @@ private:
 			hash->capacity = INITIAL_IMPLICIT_PRODUCER_HASH_SIZE;
 			hash->entries = &initialImplicitProducerHashEntries[0];
 			for (size_t i = 0; i != INITIAL_IMPLICIT_PRODUCER_HASH_SIZE; ++i) {
-				initialImplicitProducerHashEntries[i].key.store(details::invalid_thread_id, std::memory_order_relaxed);
+				initialImplicitProducerHashEntries[i].key.store(details::invalid_fiber_id, std::memory_order_relaxed);
 			}
 			hash->prev = nullptr;
 			implicitProducerHash.store(hash, std::memory_order_relaxed);
@@ -3399,8 +3400,8 @@ private:
 		debug::DebugLock lock(implicitProdMutex);
 #endif
 		
-		auto id = details::thread_id();
-		auto hashedId = details::hash_thread_id(id);
+		auto id = details::fiber_id();
+		auto hashedId = details::hash_fiber_id(id);
 		
 		auto mainHash = implicitProducerHash.load(std::memory_order_acquire);
 		assert(mainHash != nullptr);  // silence clang-tidy and MSVC warnings (hash cannot be null)
@@ -3422,9 +3423,9 @@ private:
 						index = hashedId;
 						while (true) {
 							index &= mainHash->capacity - 1u;
-							auto empty = details::invalid_thread_id;
+							auto empty = details::invalid_fiber_id;
 #ifdef MOODYCAMEL_CPP11_THREAD_LOCAL_SUPPORTED
-							auto reusable = details::invalid_thread_id2;
+							auto reusable = details::invalid_fiber_id2;
 							if (mainHash->entries[index].key.compare_exchange_strong(empty,    id, std::memory_order_seq_cst, std::memory_order_relaxed) ||
 								mainHash->entries[index].key.compare_exchange_strong(reusable, id, std::memory_order_seq_cst, std::memory_order_relaxed)) {
 #else
@@ -3439,7 +3440,7 @@ private:
 					
 					return value;
 				}
-				if (probedKey == details::invalid_thread_id) {
+				if (probedKey == details::invalid_fiber_id) {
 					break;		// Not in this hash table
 				}
 				++index;
@@ -3474,7 +3475,7 @@ private:
 					newHash->entries = reinterpret_cast<ImplicitProducerKVP*>(details::align_for<ImplicitProducerKVP>(raw + sizeof(ImplicitProducerHash)));
 					for (size_t i = 0; i != newCapacity; ++i) {
 						new (newHash->entries + i) ImplicitProducerKVP;
-						newHash->entries[i].key.store(details::invalid_thread_id, std::memory_order_relaxed);
+						newHash->entries[i].key.store(details::invalid_fiber_id, std::memory_order_relaxed);
 					}
 					newHash->prev = mainHash;
 					implicitProducerHash.store(newHash, std::memory_order_release);
@@ -3505,9 +3506,9 @@ private:
 				auto index = hashedId;
 				while (true) {
 					index &= mainHash->capacity - 1u;
-					auto empty = details::invalid_thread_id;
+					auto empty = details::invalid_fiber_id;
 #ifdef MOODYCAMEL_CPP11_THREAD_LOCAL_SUPPORTED
-					auto reusable = details::invalid_thread_id2;
+					auto reusable = details::invalid_fiber_id2;
 					if (mainHash->entries[index].key.compare_exchange_strong(reusable, id, std::memory_order_seq_cst, std::memory_order_relaxed)) {
 						implicitProducerHashCount.fetch_sub(1, std::memory_order_relaxed);  // already counted as a used slot
 						mainHash->entries[index].value = producer;
@@ -3539,9 +3540,9 @@ private:
 #endif
 		auto hash = implicitProducerHash.load(std::memory_order_acquire);
 		assert(hash != nullptr);		// The thread exit listener is only registered if we were added to a hash in the first place
-		auto id = details::thread_id();
-		auto hashedId = details::hash_thread_id(id);
-		details::thread_id_t probedKey;
+		auto id = details::fiber_id();
+		auto hashedId = details::hash_fiber_id(id);
+		details::fiber_id_t probedKey;
 		
 		// We need to traverse all the hashes just in case other threads aren't on the current one yet and are
 		// trying to add an entry thinking there's a free slot (because they reused a producer)
@@ -3550,11 +3551,11 @@ private:
 			do {
 				index &= hash->capacity - 1u;
 				probedKey = id;
-				if (hash->entries[index].key.compare_exchange_strong(probedKey, details::invalid_thread_id2, std::memory_order_seq_cst, std::memory_order_relaxed)) {
+				if (hash->entries[index].key.compare_exchange_strong(probedKey, details::invalid_fiber_id2, std::memory_order_seq_cst, std::memory_order_relaxed)) {
 					break;
 				}
 				++index;
-			} while (probedKey != details::invalid_thread_id);		// Can happen if the hash has changed but we weren't put back in it yet, or if we weren't added to this hash in the first place
+			} while (probedKey != details::invalid_fiber_id);		// Can happen if the hash has changed but we weren't put back in it yet, or if we weren't added to this hash in the first place
 		}
 		
 		// Mark the queue as being recyclable
