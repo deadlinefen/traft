@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "concurrentqueue/blockingconcurrentqueue.h"
+#include "traft/concurrentqueue/blockingconcurrentqueue_impl.h"
 
 namespace traft {
 

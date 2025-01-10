@@ -20,4 +20,8 @@ set(TRAFT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}
                       ${TARGET_INCLUDE_PATHS})
 include_directories(${TRAFT_INCLUDE_DIR})
 
-add_subdirectory(traft)
+find_package(trpc REQUIRED)
+
+# add_subdirectory(traft)
+add_subdirectory(testing)
+add_subdirectory(trpc)
